@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+     <meta charset="UTF-8">
+   <title>Bekleme Salonu İnteraktif Ekran</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&family=Orbitron:wght@700&display=swap');
+
+        body {
+            margin: 0; background: #020617; color: white;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- SOL PANEL: SIRA --- */
+        .sidebar {
+            width: 420px; background: rgba(16, 185, 129, 0.03);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px; display: flex; flex-direction: column;
+        }
+
+        .clock {
+            font-family: 'Orbitron', sans-serif; font-size: 3.5rem;
+            color: #10b981; margin-bottom: 30px; text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .patient-card {
+            background: rgba(255, 255, 255, 0.03); margin-bottom: 15px;
+            padding: 25px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex; justify-content: space-between; align-items: center; transition: 0.5s;
+        }
+
+        .patient-card.active {
+            background: #10b981; color: #020617; font-weight: 800;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.5); transform: scale(1.05);
+        }
+
+        /* --- SAĞ PANEL: İÇERİK --- */
+        .main-display {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+        }
+
+        .heart-icon {
+            font-size: 150px; color: #ef4444; margin-bottom: 40px;
+            animation: heartPulse 1.2s infinite;
+            filter: drop-shadow(0 0 30px rgba(239, 68, 68, 0.5));
+        }
+
+        @keyframes heartPulse {
+            0%, 100% { transform: scale(1); }
+            15% { transform: scale(1.15); }
+            30% { transform: scale(1.1); }
+        }
+
+        #tipContainer {
+            font-size: 2.8rem; font-weight: 800; line-height: 1.2; max-width: 85%;
+            background: linear-gradient(to bottom, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 1; transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .ticker {
+            position: fixed; bottom: 0; width: 100%; background: #10b981;
+            color: #020617; padding: 12px 0; font-weight: 800; text-transform: uppercase;
+        }
+
+        /* --- MÜZİK KONTROL BUTONU (Görünür olması gerekebilir) --- */
+        .music-control {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255,255,255,0.1); padding: 10px; border-radius: 50%;
+            cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <script id="tips-data" type="application/json">{{ tips | tojson | safe }}</script>
+    
+    <audio id="notifSound" preload="auto">
+        <source src="{{ url_for('static', filename='sounds/notification.mp3') }}" type="audio/mpeg">
+    </audio>
+    <audio id="bgMusic" loop preload="auto">
+        <source src="{{ url_for('static', filename='sounds/clinic_music.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <div class="sidebar">
+        <div class="clock" id="liveClock">00:00</div>
+        <h3 style="color: #94a3b8; letter-spacing: 4px; margin-bottom: 25px;">RANDEVU SIRASI</h3>
+        <div id="queue">
+            {% for app in appointments %}
+            <div class="patient-card {% if loop.first %}active{% endif %}">
+                <span style="font-size: 1.5rem;">{{ app['patient_name'] }}</span>
+                <span style="font-size: 1.5rem; opacity: 0.7;">{{ app['appointment_date'] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="main-display">
+        <div class="music-control" onclick="toggleMusic()">
+            <i id="musicIcon" class="fas fa-volume-mute"></i>
+        </div>
+        
+        <i class="fas fa-heart-pulse heart-icon"></i>
+        <div style="height: 220px; display: flex; flex-direction: column; justify-content: center;">
+            <p style="color: #10b981; font-weight: 800; letter-spacing: 6px; margin-bottom: 20px;">SAĞLIK NOTU</p>
+            <div id="tipContainer">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <div class="ticker">
+        <marquee scrollamount="10">
+            • LÜTFEN SIRANIZI EKRANDAN TAKİP EDİNİZ • SAĞLIĞINIZ BİZİM İÇİN DEĞERLİDİR • YAPAY ZEKA DESTEKLİ ANALİZLERİMİZLE KALP RİSKİNİZ KONTROL ALTINDA •
+        </marquee>
+    </div>
+
+    <script>
+        // 1. Saat Güncelleme
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = now.getHours().toString().padStart(2, '0') + ":" + 
+                                                         now.getMinutes().toString().padStart(2, '0');
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        // 2. Tavsiye Rotasyonu (Hatasız JS)
+        const tips = JSON.parse(document.getElementById('tips-data').textContent);
+        let idx = 0;
+        const container = document.getElementById('tipContainer');
+        if(tips && tips.length > 0) container.innerText = tips[0];
+
+        function rotate() {
+            container.style.opacity = "0";
+            container.style.transform = "translateY(10px)";
+            
+            setTimeout(() => {
+                idx = (idx + 1) % tips.length;
+                container.innerText = tips[idx];
+                container.style.opacity = "1";
+                container.style.transform = "translateY(0)";
+            }, 850);
+        }
+        setInterval(rotate, 10000);
+
+        // 3. Müzik ve Zil Sesi Kontrolü
+        const music = document.getElementById('bgMusic');
+        const chime = document.getElementById('notifSound');
+        const musicIcon = document.getElementById('musicIcon');
+
+        function toggleMusic() {
+            if (music.paused) {
+                music.play();
+                music.volume = 0.3; // Arka plan müziği kısık olsun
+                musicIcon.className = "fas fa-volume-up";
+            } else {
+                music.pause();
+                musicIcon.className = "fas fa-volume-mute";
+            }
+        }
+
+        // Sayfa yüklendiğinde bir kez zil çal (Tarayıcı izni için bir tık gerekebilir)
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                chime.play().catch(e => console.log("Ses için etkileşim gerekiyor."));
+            }, 1000);
+        });
+
+        // 5 dakikada bir sayfayı tazele
+        setTimeout(() => location.reload(), 300000);
+    </script>
+</body>
+</html>

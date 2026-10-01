@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HeartAI - Sağlık Karnesi</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #0f172a; color: #f1f5f9; padding: 40px; }
+        .container { max-width: 1200px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { background: #1e293b; padding: 25px; border-radius: 20px; border: 1px solid #334155; position: relative; }
+        .back-btn { color: #94a3b8; text-decoration: none; font-size: 14px; transition: 0.3s; }
+        .back-btn:hover { color: #fff; }
+        h1 { margin: 10px 0; color: #00d2ff; }
+        h3 { margin-top: 0; color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .stat-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #334155; }
+        .stat-row:last-child { border-bottom: none; }
+        
+        /* Grafik Konteynırı */
+        .chart-container { position: relative; height: 400px; width: 100%; margin-top: 20px; }
+        /* Sayfa ilk açıldığında süzülme efekti */
+body {
+    animation: pageIn 0.6s ease-out forwards;
+    opacity: 0; /* Başlangıçta gizle, animasyonla aç */
+}
+
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Kartların sırayla gelmesi için (Opsiyonel) */
+.card {
+    animation: cardSlide 0.8s ease-out;
+}
+
+@keyframes cardSlide {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <div>
+                <a href="/patients" class="back-btn"><i class="fas fa-chevron-left"></i> Hastalara Dön</a>
+                <h1>{{ patient_name }}</h1>
+                <p style="color: #94a3b8;">Klinik Geçmiş ve Analiz Verileri</p>
+            </div>
+            <button onclick="window.print()" style="padding: 12px 24px; border-radius: 12px; cursor: pointer; background: #4f46e5; color: white; border: none; font-weight: bold; transition: 0.3s;">
+                <i class="fas fa-print"></i> Raporu Yazdır
+            </button>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3><i class="fas fa-chart-line"></i> Sağlık Seyri</h3>
+                <div class="chart-container">
+                    <canvas id="patientChart"></canvas>
+                </div>
+                <div id="chartDataStore" data-history='{{ history | tojson | safe }}' style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-id-card"></i> Hasta Özeti</h3>
+                <div style="margin-top: 10px;">
+                    <div class="stat-row">
+                        <span>Son Analiz Tarihi</span>
+                        <strong>{{ history[-1][0] if history else '--' }}</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Hasta Yaşı</span>
+                        <strong>{{ history[-1][1] | int if history else '--' }}</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Kan Şekeri</span>
+                        <strong style="color: #3b82f6;">{{ history[-1][2] if history else '--' }} mg/dL</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Risk Seviyesi</span>
+                        <strong style="color: #ef4444;">%{{ history[-1][3] if history else '--' }}</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Durum Etiketi</span>
+                        <span style="font-weight: bold;">{{ history[-1][4] if history else '--' }}</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px; padding: 15px; background: rgba(0,210,255,0.1); border-radius: 12px; border: 1px solid rgba(0,210,255,0.2);">
+                    <small style="color: #00d2ff; font-weight: bold;">Doktor Notu:</small>
+                    <p style="font-size: 13px; margin: 5px 0 0 0; color: #cbd5e1; line-height: 1.5;">
+                        Hastanın son verileri baz alınarak hazırlanan grafik seyri, tedaviye verilen yanıtı göstermektedir.
+                    </p>
+                </div>
+            </div>
+            
+        </div>
+        {% if history[-1][6] == "1" and history[-1][2] > 180 %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; padding: 20px; border-radius: 15px; margin-top: 30px; color: #ef4444; display: flex; align-items: center; gap: 20px;">
+    <i class="fas fa-exclamation-triangle fa-3x"></i>
+    <div>
+        <strong style="font-size: 18px;">KRİTİK KLİNİK UYARI!</strong>
+        <p style="margin: 5px 0 0 0; color: #fca5a5;">Hastada eş zamanlı Hipertansiyon ve Kontrolsüz Şeker tespit edildi. Acil müdahale ve ilaç etkileşim kontrolü gereklidir.</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top: 30px; border-top: 5px solid #00d2ff;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3><i class="fas fa-pills" style="color: #00d2ff;"></i> AI Destekli Tedavi Planı</h3>
+        <span style="background: #334155; padding: 5px 12px; border-radius: 20px; font-size: 11px;">Taslak Reçete</span>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; color: #94a3b8; font-size: 13px; border-bottom: 1px solid #334155;">
+                <th style="padding: 15px;">İLAÇ ADI</th>
+                <th style="padding: 15px;">DOZAJ</th>
+                <th style="padding: 15px;">ENDİKASYON (NEDEN)</th>
+                <th style="padding: 15px;">DURUM</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in prescriptions %}
+            <tr style="border-bottom: 1px solid #334155; transition: 0.3s;">
+                <td style="padding: 15px; font-weight: 600; color: #fff;">{{ p.ilaç }}</td>
+                <td style="padding: 15px; color: #00d2ff;">{{ p.doz }}</td>
+                <td style="padding: 15px; color: #94a3b8; font-size: 13px;">{{ p.neden }}</td>
+                <td style="padding: 15px;">
+                    <span style="color: #10b981; font-size: 12px;"><i class="fas fa-check-circle"></i> Önerildi</span>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not prescriptions %}
+            <tr>
+                <td colspan="4" style="padding: 30px; text-align: center; color: #94a3b8;">Spesifik ilaç tedavisi önerilmedi. Rutin takibe devam edilebilir.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+<div class="card" style="margin-top: 30px; border: 1px solid rgba(0, 210, 255, 0.3); background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); overflow: hidden;">
+    <div style="background: linear-gradient(90deg, #4f46e5, #00d2ff); padding: 2px; position: absolute; top: 0; left: 0; width: 100%;"></div>
+    
+    <h3 style="color: #fff; display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+        <i class="fas fa-file-medical-alt" style="color: #00d2ff;"></i> Tıbbi Arşiv & Dijital EKG
+    </h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+        <div style="background: rgba(15, 23, 42, 0.5); padding: 20px; border-radius: 15px; border: 1px dashed #334155;">
+            <form action="/upload_file/{{ patient_name if patient_name else name }}" method="POST" enctype="multipart/form-data">
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Belge Kategorisi</label>
+                    <select name="file_type" style="width: 100%; padding: 12px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 10px; margin-top: 5px; cursor: pointer; outline: none;">
+                        <option value="EKG">💓 EKG Çıktısı</option>
+                        <option value="Röntgen">🩻 Röntgen / EKO</option>
+                        <option value="Tahlil">🧪 Laboratuvar Tahlili</option>
+                        <option value="Reçete">📝 Eski Reçete</option>
+                    </select>
+                </div>
+
+                <div style="position: relative; margin-bottom: 20px;">
+                    <input type="file" name="medical_file" id="fileInput" required style="display: none;">
+                    <label for="fileInput" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; border: 2px dashed #4f46e5; border-radius: 12px; cursor: pointer; transition: 0.3s; background: rgba(79, 70, 229, 0.05);" onmouseover="this.style.background='rgba(79, 70, 229, 0.1)'" onmouseout="this.style.background='rgba(79, 70, 229, 0.05)'">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 30px; color: #00d2ff; margin-bottom: 10px;"></i>
+                        <span id="fileName" style="font-size: 12px; color: #94a3b8;">Dosyayı sürükleyin veya seçin</span>
+                    </label>
+                </div>
+
+                <button type="submit" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4f46e5, #00d2ff); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3); transition: 0.3s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    SİSTEME GÜVENLİ YÜKLE
+                </button>
+            </form>
+        </div>
+
+        <div style="max-height: 350px; overflow-y: auto; padding-right: 10px;">
+            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 15px;">Arşivlenen Belgeler</label>
+            {% if patient_files %}
+                {% for f in patient_files %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 10px; transition: 0.3s;" onmouseover="this.style.borderColor='#00d2ff'">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 45px; height: 45px; border-radius: 10px; background: rgba(0,210,255,0.1); display: flex; align-items: center; justify-content: center; color: #00d2ff; font-size: 20px;">
+                            {% if f[2] == 'EKG' %}<i class="fas fa-heartbeat"></i>
+                            {% elif f[2] == 'Röntgen' %}<i class="fas fa-x-ray"></i>
+                            {% else %}<i class="fas fa-file-medical-alt"></i>{% endif %}
+                        </div>
+                        <div>
+                            <div style="font-size: 14px; font-weight: 600; color: #fff;">{{ f[2] }}</div>
+                            <div style="font-size: 11px; color: #64748b;">{{ f[3] }}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <a href="/uploads/{{ f[1] }}" target="_blank" style="color: #10b981; background: rgba(16,185,129,0.1); width: 35px; height: 35px; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><i class="fas fa-eye"></i></a>
+                        <a href="/delete_file/{{ f[0] }}" onclick="return confirm('Bu belge kalıcı olarak silinecek?')" style="color: #ef4444; background: rgba(239,68,68,0.1); width: 35px; height: 35px; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><i class="fas fa-trash"></i></a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 50px; color: #475569;">
+                    <i class="fas fa-folder-open fa-3x" style="opacity: 0.2; margin-bottom: 15px;"></i>
+                    <p style="font-size: 13px;">Henüz tıbbi belge bulunmamaktadır.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dosya seçildiğinde ismini ekranda göster
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        let fileName = e.target.files[0].name;
+        document.getElementById('fileName').innerText = fileName;
+        document.getElementById('fileName').style.color = '#00d2ff';
+    });
+</script>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const dataStore = document.getElementById('chartDataStore');
+            const rawData = JSON.parse(dataStore.getAttribute('data-history') || "[]");
+
+            if (rawData.length === 0) {
+                document.querySelector('.chart-container').innerHTML = "<p style='color:#94a3b8; text-align:center; padding-top:100px;'>Henüz veri bulunmuyor.</p>";
+                return;
+            }
+
+            // Verileri Map Etme (Garantili Format)
+            const labels = rawData.map(row => row[0]); // Tarihler
+            const glucoseValues = rawData.map(row => row[2]); // Glikoz
+            const riskValues = rawData.map(row => row[3]); // Risk %
+
+            const ctx = document.getElementById('patientChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Risk Skoru (%)',
+                            data: riskValues,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'yRisk', // Sol Eksen
+                            pointRadius: 4,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Kan Şekeri (mg/dL)',
+                            data: glucoseValues,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5], // Kesikli çizgi
+                            tension: 0.4,
+                            fill: false,
+                            yAxisID: 'yGlucose', // Sağ Eksen
+                            pointRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        yRisk: { // SOL EKSEN (RİSK)
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Risk %', color: '#ef4444' },
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        yGlucose: { // SAĞ EKSEN (ŞEKER)
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: false,
+                            suggestedMin: 70,
+                            suggestedMax: 250,
+                            title: { display: true, text: 'Glikoz mg/dL', color: '#3b82f6' },
+                            ticks: { color: '#94a3b8' },
+                            grid: { display: false } // Çizgiler birbirine karışmasın
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff', usePointStyle: true, padding: 20 } },
+                        tooltip: { padding: 15, backgroundColor: '#1e293b', titleColor: '#00d2ff' }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("Grafik çizilirken bir hata oluştu:", error);
+        }
+    });
+    
+document.addEventListener('DOMContentLoaded', () => {
+    // Tüm linkleri yakala
+    const links = document.querySelectorAll('a');
+    
+    links.forEach(link => {
+        link.addEventListener('click', e => {
+            // Sadece kendi sitemiz içindeki linkler için çalışsın
+            if (link.hostname === window.location.hostname && !link.target && !link.href.includes('#')) {
+                e.preventDefault();
+                const destination = link.href;
+                
+                // Sayfayı yavaşça karart
+                document.body.style.transition = 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out';
+                document.body.style.opacity = '0';
+                document.body.style.transform = 'translateY(-10px)';
+                
+                // Animasyon bitince yeni sayfaya git
+                setTimeout(() => {
+                    window.location.href = destination;
+                }, 400);
+            }
+        });
+    });
+});
+
+    </script>
+</body>
+</html>

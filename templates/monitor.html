@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HeartAI - Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
+        .monitor-container { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; height: 90vh; }
+        .ecg-box { border: 2px solid #333; background: #050505; position: relative; padding: 10px; }
+        .vitals-box { display: flex; flex-direction: column; gap: 20px; }
+        .vital-card { border: 2px solid #333; padding: 20px; text-align: center; background: #111; }
+        .vital-value { font-size: 48px; font-weight: bold; margin: 10px 0; }
+        .bpm { color: #ff0000; } .spo2 { color: #00ffff; } .temp { color: #ffff00; }
+        .back-btn { color: #fff; text-decoration: none; display: inline-block; margin-bottom: 20px; border: 1px solid #fff; padding: 5px 15px; }
+    </style>
+</head>
+<body>
+    <a href="/patients" class="back-btn"><i class="fas fa-arrow-left"></i> Panale Dön</a>
+    <h1>HASTA İZLEME MONİTÖRÜ: {{ patient_name }}</h1>
+
+    <div class="monitor-container">
+        <div class="ecg-box">
+            <h3 style="color: #fff;">Canlı EKG (Simülasyon)</h3>
+            <canvas id="ecgChart"></canvas>
+        </div>
+
+        <div class="vitals-box">
+            <div class="vital-card bpm">
+                <i class="fas fa-heartbeat"></i> <span>NABIZ (BPM)</span>
+                <div class="vital-value" id="bpm_val">--</div>
+            </div>
+            <div class="vital-card spo2">
+                <i class="fas fa-wind"></i> <span>SpO2 (%)</span>
+                <div class="vital-value" id="spo2_val">--</div>
+            </div>
+            <div class="vital-card temp">
+                <i class="fas fa-thermometer-half"></i> <span>VÜCUT ISISI (°C)</span>
+                <div class="vital-value" id="temp_val">--</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('ecgChart').getContext('2d');
+        let ecgData = Array(50).fill(0);
+        let labels = Array(50).fill('');
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: ecgData,
+                    borderColor: '#00ff00',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: { y: { min: -1, max: 10, display: false }, x: { display: false } },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Verileri her saniye güncelle
+        setInterval(async () => {
+            const res = await fetch('/api/live_heart_data');
+            const data = await res.json();
+            
+            // Sayısal değerleri güncelle
+            document.getElementById('bpm_val').innerText = data.bpm;
+            document.getElementById('spo2_val').innerText = data.spo2;
+            document.getElementById('temp_val').innerText = data.temp;
+
+            // EKG Dalgası Simülasyonu
+            ecgData.push(Math.random() * 2); 
+            if(Math.random() > 0.8) ecgData[ecgData.length-1] = 8; // Kalp atışı piki
+            ecgData.shift();
+            chart.update();
+        }, 500);
+    </script>
+</body>
+</html>

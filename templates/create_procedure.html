@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HeartAI - Yeni Müdahale</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #0f172a; color: #f1f5f9; display: flex; }
+        
+        /* Sidebar Düzenlemesi */
+        .sidebar { width: 260px; background: #1e293b; height: 100vh; padding: 25px; position: fixed; border-right: 1px solid #334155; display: flex; flex-direction: column; box-sizing: border-box; }
+        .logo-container { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; color: #00d2ff; }
+        .logo-container h2 { margin: 0; font-size: 22px; font-weight: 700; }
+        
+        .menu { list-style: none; padding: 0; margin: 0; flex-grow: 1; }
+        .menu li { margin-bottom: 8px; }
+        .menu a { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: #94a3b8; text-decoration: none; border-radius: 12px; transition: 0.3s; font-weight: 500; }
+        .menu li.active a, .menu a:hover { background: #4f46e5; color: white; }
+
+        .user-profile { margin-top: auto; padding-top: 20px; border-top: 1px solid #334155; display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 40px; height: 40px; background: #334155; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #4f46e5; }
+        .user-info h4 { margin: 0; font-size: 14px; }
+        .user-info span { font-size: 11px; color: #94a3b8; }
+
+        /* Ana İçerik */
+        .main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
+        
+        .form-card { background: #1e293b; padding: 40px; border-radius: 24px; border: 1px solid #334155; max-width: 800px; margin: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); }
+        .input-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 10px; color: #94a3b8; font-weight: 600; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 14px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 12px; outline: none; font-size: 15px; transition: 0.3s; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+        
+        .proc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .btn-submit { width: 100%; padding: 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 16px; margin-top: 20px; transition: 0.3s; }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4); }
+
+        /* Makbuz Yazdırma Stili (Sadece print modunda görünür) */
+        @media print {
+            body * { visibility: hidden; }
+            #receiptTemplate, #receiptTemplate * { visibility: visible; }
+            #receiptTemplate { position: absolute; left: 0; top: 0; width: 100%; }
+            .sidebar, .main-content { display: none; }
+        }
+        /* Sayfa ilk açıldığında süzülme efekti */
+body {
+    animation: pageIn 0.6s ease-out forwards;
+    opacity: 0; /* Başlangıçta gizle, animasyonla aç */
+}
+
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Kartların sırayla gelmesi için (Opsiyonel) */
+.card {
+    animation: cardSlide 0.8s ease-out;
+}
+
+@keyframes cardSlide {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <i class="fas fa-heartbeat"></i>
+            <h2>HeartAI</h2>
+        </div>
+        
+        <ul class="menu">
+            <li class="{% if request.path == '/dashboard' %}active{% endif %}">
+                <a href="/dashboard"><i class="fas fa-chart-pie"></i> Analiz Paneli</a>
+            </li>
+            <li class="{% if request.path == '/patients' %}active{% endif %}">
+                <a href="/patients"><i class="fas fa-users"></i> Hastalarım</a>
+            </li>
+            <li class="{% if request.path == '/appointments' %}active{% endif %}">
+                <a href="/appointments"><i class="fas fa-calendar-alt"></i> Randevular</a>
+            </li>
+            <li class="{% if request.path == '/history' %}active{% endif %}">
+                <a href="/history"><i class="fas fa-history"></i> Geçmiş Kayıtlar</a>
+            </li>
+            <li class="{% if '/diet_plan' in request.path or '/patient_diet' in request.path %}active{% endif %}">
+    <a href="/diet_plan"><i class="fas fa-utensils"></i> Diet Plan</a>
+</li>
+            <li class="{% if request.path == '/create_procedure' %}active{% endif %}">
+                <a href="/create_procedure"><i class="fas fa-plus-square"></i> Yeni İşlem</a>
+            </li>
+            <li class="{% if request.path == '/all_procedures' %}active{% endif %}">
+                <a href="/all_procedures"><i class="fas fa-file-invoice-dollar"></i> İşlem Arşivi</a>
+            </li>
+            <a href="{{ url_for('new_patient_registration') }}" class="btn-premium">
+    <i class="fas fa-user-plus"></i> Yeni Hasta Kaydı
+</a>
+            <a href="{{ url_for('waiting_room') }}" class="btn-premium">
+    <i class="fas fa-tv"></i> Bekleme Salonu Ekranı
+</a>
+            <li><a href="/logout" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a></li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="avatar"><i class="fas fa-user-md"></i></div>
+            <div class="user-info">
+                <h4>{{ username }}</h4>
+                <span>Aktif Doktor</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="form-card">
+            <h1 style="margin-top:0;"><i class="fas fa-hand-holding-medical" style="color: #10b981;"></i> Klinik Müdahale Girişi</h1>
+            <p style="color: #94a3b8; margin-bottom: 30px;">Hasta üzerinde uygulanan tıbbi işlemi ve maliyet detaylarını sisteme kaydedin.</p>
+            
+            <form action="/add_procedure" method="POST">
+                <div class="input-group">
+                    <label>HASTA SEÇİMİ / ADI SOYADI</label>
+                   <input list="patient-list" 
+       id="pName" 
+       name="patient_name" 
+       value="{{ selected_patient if selected_patient else '' }}" 
+       placeholder="Hasta adını yazın veya listeden seçin..." 
+       required>
+                    <datalist id="patient-list">
+                        {% for p in patients %}
+                        <option value="{{ p }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+
+                <div class="proc-grid">
+                    <div class="input-group">
+                        <label>UYGULANAN İŞLEM</label>
+                        <select name="procedure_name" id="procSelect" onchange="updatePrice()">
+                            <option value="Genel Muayene" data-price="500">Genel Muayene</option>
+                            <option value="EKG Analizi" data-price="750">EKG Analizi</option>
+                            <option value="Efor Testi" data-price="1200">Efor Testi</option>
+                            <option value="Ekokardiyografi" data-price="1800">Ekokardiyografi</option>
+                            <option value="Holter Takibi" data-price="950">Holter Takibi</option>
+                            <option value="Kan Tahlili Paneli" data-price="600">Kan Tahlili</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>İŞLEM ÜCRETİ (₺)</label>
+                        <input type="number" name="cost" id="priceInput" value="500" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>HIZLI NOTLAR / TIBBİ GÖZLEM</label>
+                    <textarea name="notes" rows="3" placeholder="İşlem sırasında fark edilen özel bir durum var mı?"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <button type="submit" class="btn-submit">SİSTEME KAYDET</button>
+                    <button type="button" onclick="quickPrint()" class="btn-submit" style="background: #4f46e5; width: 250px;">
+                        <i class="fas fa-print"></i> TASLAK YAZDIR
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="receiptTemplate" style="display: none; font-family: 'Courier New', monospace; color: #000; padding: 40px; border: 1px solid #ccc; width: 400px; margin: auto;">
+        <center>
+            <h2 style="margin-bottom: 5px;">HeartAI KLİNİK</h2>
+            <p style="font-size: 12px; margin-top: 0;">Dijital Sağlık ve Takip Sistemi</p>
+            <hr>
+        </center>
+        <div style="margin-top: 20px;">
+            <p><strong>TARİH:</strong> <span id="rDate">--.--.----</span></p>
+            <p><strong>HASTA:</strong> <span id="rName"></span></p>
+            <p><strong>İŞLEM:</strong> <span id="rProc"></span></p>
+            <hr style="border-top: 1px dashed #000;">
+            <h3 style="text-align: right;">TOPLAM: <span id="rCost"></span> ₺</h3>
+        </div>
+        <center style="margin-top: 40px; font-size: 11px;">
+            <p>Geçmiş olsun dileriz.</p>
+            <p>Bu bir sistem çıktısıdır, mali makbuz yerine geçmez.</p>
+        </center>
+    </div>
+
+    <script>
+        function updatePrice() {
+            const select = document.getElementById('procSelect');
+            const price = select.options[select.selectedIndex].getAttribute('data-price');
+            document.getElementById('priceInput').value = price;
+        }
+
+        // Formu kaydetmeden önce doktora bir önizleme/makbuz çıktısı alma şansı verir
+        function quickPrint() {
+            const name = document.getElementById('pName').value;
+            const proc = document.getElementById('procSelect').value;
+            const cost = document.getElementById('priceInput').value;
+            const today = new Date().toLocaleDateString('tr-TR');
+
+            if(!name) { alert("Lütfen önce hasta adını girin!"); return; }
+
+            document.getElementById('rName').innerText = name;
+            document.getElementById('rProc').innerText = proc;
+            document.getElementById('rCost').innerText = cost;
+            document.getElementById('rDate').innerText = today;
+
+            window.print();
+        }
+
+       
+document.addEventListener('DOMContentLoaded', () => {
+    // Tüm linkleri yakala
+    const links = document.querySelectorAll('a');
+    
+    links.forEach(link => {
+        link.addEventListener('click', e => {
+            // Sadece kendi sitemiz içindeki linkler için çalışsın
+            if (link.hostname === window.location.hostname && !link.target && !link.href.includes('#')) {
+                e.preventDefault();
+                const destination = link.href;
+                
+                // Sayfayı yavaşça karart
+                document.body.style.transition = 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out';
+                document.body.style.opacity = '0';
+                document.body.style.transform = 'translateY(-10px)';
+                
+                // Animasyon bitince yeni sayfaya git
+                setTimeout(() => {
+                    window.location.href = destination;
+                }, 400);
+            }
+        });
+    });
+});
+
+    </script>
+</body>
+</html>

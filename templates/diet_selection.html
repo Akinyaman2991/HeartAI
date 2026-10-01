@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HeartAI - Hasta Seçim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+
+        :root {
+            --primary: #10b981;
+            --secondary: #34d399;
+            --bg: #0b0f1a;
+            --card-bg: rgba(30, 41, 59, 0.4);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        /* --- PRELOADER --- */
+        #preloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10000;
+        }
+        .loader-icon {
+            font-size: 50px; color: var(--primary);
+            animation: heartBeat 1.2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            filter: drop-shadow(0 0 10px var(--primary));
+        }
+        @keyframes heartBeat {
+            0% { transform: scale(0.95); }
+            5% { transform: scale(1.1); }
+            39% { transform: scale(0.85); }
+            45% { transform: scale(1); }
+            100% { transform: scale(0.9); }
+        }
+
+        body {
+            margin: 0; font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg); color: var(--text-main);
+            padding: 40px 20px; min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px; margin: auto;
+            opacity: 0; transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .container.active { opacity: 1; transform: translateY(0); }
+
+        /* --- BAŞLIK HATASI DÜZELTİLDİ --- */
+        .header { margin-bottom: 50px; }
+        .premium-title {
+            font-size: 44px; font-weight: 800; margin: 10px 0;
+            display: table; /* Genişlik hatasını önler */
+            background: linear-gradient(90deg, #ffffff, var(--primary), #ffffff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 4s linear infinite;
+        }
+        @keyframes shine { to { background-position: 200% center; } }
+
+        .back-link {
+            color: var(--text-dim); text-decoration: none; font-size: 13px;
+            font-weight: 600; display: inline-flex; align-items: center; gap: 8px;
+            margin-bottom: 15px; transition: 0.3s;
+        }
+        .back-link:hover { color: var(--primary); transform: translateX(-5px); }
+
+        /* --- HASTA LİSTESİ --- */
+        .patient-list { display: grid; gap: 18px; }
+
+        .patient-row {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 22px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            text-decoration: none; color: inherit;
+            transition: all 0.4s ease;
+        }
+
+        .patient-row:hover {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.08);
+            transform: scale(1.02) translateX(10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .info-group { display: flex; align-items: center; gap: 20px; }
+        
+        .avatar {
+            width: 55px; height: 55px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; color: #0b0f1a; font-weight: 800;
+            box-shadow: 0 8px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .details h3 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.5px; }
+        .details p { margin: 4px 0 0 0; font-size: 12px; color: var(--text-dim); }
+
+        .status-group { text-align: right; }
+        
+        .badge {
+            font-size: 10px; font-weight: 800; padding: 5px 12px;
+            border-radius: 8px; text-transform: uppercase; letter-spacing: 1px;
+            border: 1px solid rgba(255,255,255,0.1); display: inline-block;
+        }
+        .high-risk { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
+        .safe-risk { background: rgba(16, 185, 129, 0.1); color: var(--primary); border-color: rgba(16, 185, 129, 0.2); }
+
+        .arrow { color: var(--primary); font-size: 18px; opacity: 0; transition: 0.3s; transform: translateX(-10px); }
+        .patient-row:hover .arrow { opacity: 1; transform: translateX(0); }
+.patient-grid {
+    display: grid;
+    gap: 18px;
+    max-height: 70vh; /* Ekranın %70'ini kaplasın */
+    overflow-y: auto; /* Fazla gelirse kaydırılsın */
+    padding-right: 10px;
+}
+
+/* Kaydırma çubuğunu güzelleştirelim */
+.patient-grid::-webkit-scrollbar { width: 5px; }
+.patient-grid::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="preloader">
+        <div class="loader-icon"><i class="fas fa-heart"></i></div>
+        <p style="color: var(--text-dim); margin-top: 15px; font-size: 11px; letter-spacing: 3px;">HASTA ARŞİVİ YÜKLENİYOR...</p>
+    </div>
+
+    <div class="container" id="main">
+        <div class="header">
+            <a href="/dashboard" class="back-link">
+                <i class="fas fa-chevron-left"></i> KLİNİK PANELİNE DÖN
+            </a>
+            <h1 class="premium-title">Diyet Yönetimi</h1>
+            <p style="color: var(--text-dim); margin-top: -5px;">Analiz raporuna göre diyet planı seçilecek hastayı belirleyin.</p>
+        </div>
+
+        <div class="patient-list">
+            {% for p in patients %}
+            <a href="/patient_diet/{{ p[5] }}" class="patient-row">
+                <div class="info-group">
+                    <div class="avatar">{{ p[0][0] }}</div>
+                    <div class="details">
+                        <h3>{{ p[0] }}</h3>
+                        <p><i class="far fa-clock"></i> Son İşlem: {{ p[1] }}</p>
+                    </div>
+                </div>
+
+                <div class="status-group">
+                    <div class="badge {% if 'YÜKSEK' in p[4] %}high-risk{% else %}safe-risk{% endif %}">
+                        {{ p[4] }}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">ID: #{{ p[5] }}</div>
+                </div>
+
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const loader = document.getElementById('preloader');
+                const main = document.getElementById('main');
+                loader.style.opacity = '0';
+                loader.style.transition = '0.6s';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    main.classList.add('active');
+                }, 600);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

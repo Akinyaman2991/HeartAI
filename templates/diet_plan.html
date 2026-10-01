@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HeartAI - Diet Plan</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+
+        /* --- GLOBAL DEĞİŞKENLER --- */
+        :root {
+            --primary: #10b981;
+            --secondary: #00d2ff;
+            --accent: #6366f1;
+            --bg: #0b0f1a;
+            --card-bg: rgba(30, 41, 59, 0.4);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        /* --- PRELOADER ANIMASYONU --- */
+        #preloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10000;
+        }
+        .loader-icon {
+            font-size: 60px; color: var(--primary);
+            animation: heartBeat 1.2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            filter: drop-shadow(0 0 15px var(--primary));
+        }
+        @keyframes heartBeat {
+            0% { transform: scale(0.95); }
+            5% { transform: scale(1.1); }
+            39% { transform: scale(0.85); }
+            45% { transform: scale(1); }
+            60% { transform: scale(0.95); }
+            100% { transform: scale(0.9); }
+        }
+
+        /* --- GENEL YAPI --- */
+        body {
+            margin: 0; font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg); color: var(--text-main);
+            padding: 40px; overflow-x: hidden; line-height: 1.6;
+        }
+
+        .container { 
+            max-width: 1300px; margin: auto; 
+            opacity: 0; transform: translateY(30px); 
+            transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .container.active { opacity: 1; transform: translateY(0); }
+
+        /* --- PREMIUM BAŞLIK (HATA DÜZELTİLDİ) --- */
+        .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; }
+        
+        .title-area h1 {
+            font-size: 42px; font-weight: 800; margin: 10px 0;
+            color: #ffffff; /* Fallback */
+            background: linear-gradient(to right, #ffffff, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        /* --- BUTONLAR --- */
+        .action-btns { display: flex; gap: 15px; }
+        .btn {
+            padding: 14px 28px; border-radius: 16px; font-weight: 700;
+            cursor: pointer; border: none; display: flex; align-items: center; gap: 10px;
+            transition: all 0.4s; font-size: 14px;
+        }
+        .btn-whatsapp { background: #25d366; color: #fff; box-shadow: 0 10px 20px rgba(37, 211, 102, 0.2); }
+        .btn-print { background: var(--primary); color: #0b0f1a; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2); }
+        .btn:hover { transform: translateY(-5px) scale(1.02); filter: brightness(1.1); }
+
+        /* --- DİYET KARTLARI --- */
+        .diet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; }
+        
+        .diet-card {
+            background: var(--card-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: 30px;
+            padding: 35px; position: relative; transition: 0.5s;
+            overflow: hidden;
+        }
+        .diet-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5), inset 0 0 20px rgba(16, 185, 129, 0.1);
+        }
+        .diet-card::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .day-label {
+            background: rgba(16, 185, 129, 0.1); color: var(--primary);
+            padding: 6px 20px; border-radius: 12px; font-weight: 800;
+            font-size: 12px; display: inline-block; margin-bottom: 25px;
+            border: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase;
+        }
+
+        .meal-box { margin-bottom: 25px; position: relative; padding-left: 25px; }
+        .meal-box::before {
+            content: ''; position: absolute; left: 0; top: 0; height: 100%;
+            width: 3px; background: linear-gradient(to bottom, var(--primary), transparent);
+            border-radius: 3px;
+        }
+        .meal-time { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; }
+        .meal-content { font-size: 16px; color: #fff; margin-top: 5px; font-weight: 500; }
+
+        /* --- KLİNİK UYARI --- */
+        .clinical-note {
+            background: linear-gradient(90deg, rgba(234, 179, 8, 0.1), transparent);
+            border-left: 4px solid #eab308; padding: 25px; border-radius: 20px;
+            margin-bottom: 45px; display: flex; align-items: center; gap: 20px;
+        }
+
+        @media print {
+            #preloader, .action-btns, .back-link { display: none; }
+            body { background: #fff; color: #000; padding: 20px; }
+            .diet-card { border: 1px solid #ddd; background: #fff; break-inside: avoid; box-shadow: none; }
+            .meal-content { color: #000; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="preloader">
+        <div class="loader-icon"><i class="fas fa-heart"></i></div>
+        <div class="loader-text" style="color: var(--text-dim); margin-top: 20px; font-size: 11px; letter-spacing: 3px;">ANALİZ EDİLİYOR...</div>
+    </div>
+
+    <div class="container" id="content">
+        <div class="header">
+            <div class="title-area">
+                <a href="javascript:history.back()" class="back-link" style="color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 600;">
+                    <i class="fas fa-chevron-left"></i> KLİNİK PANELİNE DÖN
+                </a>
+                <h1>{{ patient_name }}</h1>
+                <p style="color: var(--text-dim); margin: 0;">Kişiselleştirilmiş Haftalık Kardiyovasküler Beslenme Protokolü</p>
+            </div>
+            <div class="action-btns">
+                <button class="btn btn-whatsapp" onclick="sendWhatsApp()">
+                    <i class="fab fa-whatsapp"></i> WHATSAPP PAYLAŞ
+                </button>
+                <button class="btn btn-print" onclick="window.print()">
+                    <i class="fas fa-file-pdf"></i> PDF ARŞİVLE
+                </button>
+            </div>
+        </div>
+
+        {% if note %}
+        <div class="clinical-note">
+            <i class="fas fa-stethoscope fa-2x" style="color: #eab308;"></i>
+            <div>
+                <strong style="color: #eab308; font-size: 14px; text-transform: uppercase;">Önemli Klinik Not:</strong>
+                <p style="margin: 5px 0 0 0; font-size: 15px; color: #cbd5e1;">{{ note }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="diet-grid">
+            {% for gun, ogunler in diet_plan.items() %}
+            <div class="diet-card">
+                <div class="day-label">{{ gun }}</div>
+                
+                <div class="meal-box">
+                    <div class="meal-time">Kahvaltı / 08:30</div>
+                    <div class="meal-content">{{ ogunler.Sabah }}</div>
+                </div>
+
+                <div class="meal-box">
+                    <div class="meal-time">Öğle / 13:00</div>
+                    <div class="meal-content">{{ ogunler.Öğle }}</div>
+                </div>
+
+                <div class="meal-box">
+                    <div class="meal-time">Akşam / 19:00</div>
+                    <div class="meal-content">{{ ogunler.Akşam }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        // Sayfa Yükleme Kontrolü
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const loader = document.getElementById('preloader');
+                const content = document.getElementById('content');
+                loader.style.opacity = '0';
+                loader.style.transition = '0.5s';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    content.classList.add('active');
+                }, 500);
+            }, 1500);
+        });
+
+        // WhatsApp Gönderim Fonksiyonu
+        function sendWhatsApp() {
+            const patient = "{{ patient_name }}";
+            const message = `Sayın ${patient}, Kalp Sağlığı Koruma Programınız ve Haftalık Diyet Listeniz güncellenmiştir. Sağlıklı günler dileriz.`;
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(message + " " + window.location.href)}`;
+            window.open(waUrl, '_blank');
+        }
+    </script>
+</body>
+</html>

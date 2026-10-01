@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Geçmiş Kayıtlar - HeartAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #0f172a; color: #f1f5f9; display: flex; }
+        .sidebar { width: 260px; background: #1e293b; height: 100vh; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #334155; position: fixed; top: 0; left: 0; }
+        .logo-container { display: flex; align-items: center; gap: 15px; margin-bottom: 50px; color: #00d2ff; }
+        .logo-container h2 { margin: 0; font-size: 20px; }
+        .menu { list-style: none; padding: 0; margin: 0; flex: 1; }
+        .menu li { margin-bottom: 10px; }
+        .menu a { display: flex; align-items: center; gap: 15px; padding: 15px; text-decoration: none; color: #94a3b8; border-radius: 12px; transition: 0.3s; font-weight: 500; }
+        .menu li.active a, .menu a:hover { background: #4f46e5; color: white; box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3); }
+        .user-profile { display: flex; align-items: center; gap: 15px; padding-top: 20px; border-top: 1px solid #334155; }
+        .avatar { width: 40px; height: 40px; background: #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .main-content { margin-left: 300px; padding: 40px; width: 100%; min-height: 100vh; position: relative; padding-bottom: 100px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 30px; border-radius: 20px; border: 1px solid #334155; margin-bottom: 20px; }
+        
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .history-table th { text-align: left; color: #94a3b8; padding-bottom: 15px; border-bottom: 1px solid #334155; }
+        .history-table td { padding: 15px 0; border-bottom: 1px solid #334155; }
+        .badge { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; }
+        .badge-risk { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .badge-safe { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .badge-medium { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+
+        /* YENİ EKLENEN TERTEMİZ CSS SINIFLARI */
+        .skor-yuksek { color: #ef4444; font-weight: bold; }
+        .skor-orta { color: #eab308; font-weight: bold; }
+        .skor-dusuk { color: #10b981; font-weight: bold; }
+
+        .simple-footer { text-align: center; padding: 20px; color: #64748b; font-size: 13px; border-top: 1px solid #334155; background: #0f172a; width: calc(100% - 300px); position: absolute; bottom: 0; right: 0; box-sizing: border-box;}
+    /* Sayfa ilk açıldığında süzülme efekti */
+body {
+    animation: pageIn 0.6s ease-out forwards;
+    opacity: 0; /* Başlangıçta gizle, animasyonla aç */
+}
+
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Kartların sırayla gelmesi için (Opsiyonel) */
+.card {
+    animation: cardSlide 0.8s ease-out;
+}
+
+@keyframes cardSlide {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+        <div class="logo-container">
+            <i class="fas fa-heartbeat"></i>
+            <h2>HeartAI</h2>
+        </div>
+        
+        <ul class="menu">
+            <li class="{% if request.path == '/dashboard' %}active{% endif %}">
+                <a href="/dashboard"><i class="fas fa-chart-pie"></i> Analiz Paneli</a>
+            </li>
+            <li class="{% if request.path == '/patients' %}active{% endif %}">
+                <a href="/patients"><i class="fas fa-users"></i> Hastalarım</a>
+            </li>
+            <li class="{% if request.path == '/appointments' %}active{% endif %}">
+                <a href="/appointments"><i class="fas fa-calendar-alt"></i> Randevular</a>
+            </li>
+            <li class="{% if request.path == '/history' %}active{% endif %}">
+                <a href="/history"><i class="fas fa-history"></i> Geçmiş Kayıtlar</a>
+            </li>
+            <li class="{% if '/diet_plan' in request.path or '/patient_diet' in request.path %}active{% endif %}">
+    <a href="/diet_plan"><i class="fas fa-utensils"></i> Diet Plan</a>
+</li>
+            <li class="{% if request.path == '/create_procedure' %}active{% endif %}">
+                <a href="/create_procedure"><i class="fas fa-plus-square"></i> Yeni İşlem</a>
+            </li>
+            <li class="{% if request.path == '/all_procedures' %}active{% endif %}">
+                <a href="/all_procedures"><i class="fas fa-file-invoice-dollar"></i> İşlem Arşivi</a>
+            </li>
+            <a href="{{ url_for('new_patient_registration') }}" class="btn-premium">
+    <i class="fas fa-user-plus"></i> Yeni Hasta Kaydı
+</a>
+            <a href="{{ url_for('waiting_room') }}" class="btn-premium">
+    <i class="fas fa-tv"></i> Bekleme Salonu Ekranı
+</a>
+            <li><a href="/logout" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a></li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="avatar"><i class="fas fa-user-md"></i></div>
+            <div class="user-info">
+                <h4>{{ username }}</h4>
+                <span>Aktif Doktor</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h1>Geçmiş Analiz Kayıtları</h1>
+        <p style="color:#94a3b8; margin-bottom: 30px;">Tüm zamanlara ait yapay zeka analiz raporlarınız.</p>
+        
+        <div class="card">
+            <h3><i class="fas fa-chart-bar"></i> Son İşlemler (Risk Skoru)</h3>
+            <div style="height: 250px;">
+                <canvas id="historyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Kullanıcı</th>
+                        <th>Yaş</th>
+                        <th>Glikoz</th>
+                        <th>Risk Skoru</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if records %}
+                        {% for row in records %}
+                        <tr>
+                            <td>{{ row[0] }}</td> 
+                            <td style="font-weight: bold; color: #fff;">{{ row[1] }}</td> 
+                            <td>{{ row[2] | int }}</td> 
+                            <td>{{ row[3] }}</td> 
+                            
+                            {% set skor = row[4] | int %}
+                            
+                            {% if skor > 20 %}
+                                <td class="skor-yuksek">%{{ skor }}</td>
+                                <td><span class="badge badge-risk">YÜKSEK RİSK</span></td>
+                            {% elif skor > 10 %}
+                                <td class="skor-orta">%{{ skor }}</td>
+                                <td><span class="badge badge-medium">Orta Risk</span></td>
+                            {% else %}
+                                <td class="skor-dusuk">%{{ skor }}</td>
+                                <td><span class="badge badge-safe">Düşük Risk</span></td>
+                            {% endif %}
+
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding: 20px; color: #94a3b8;">
+                                <i class="fas fa-info-circle"></i> Henüz hiç analiz kaydınız bulunmuyor.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="simple-footer">© 2026 HealthGuard AI. Tüm hakları saklıdır.</div>
+    </div>
+
+    <div id="chartData" data-records='{{ records | tojson | safe }}' style="display:none;"></div>
+
+    <script>
+        // Sayfa tamamen yüklendiğinde çalışmasını sağlıyoruz (Çökmeleri önler)
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Veriyi gizli HTML etiketinden çekip JSON'a çeviriyoruz
+                const dataElement = document.getElementById('chartData');
+                const rawData = JSON.parse(dataElement.getAttribute('data-records') || "[]");
+                
+                let riskScores = [];
+                let labels = [];
+
+                // Eğer veritabanında kayıt varsa listeleri doldur
+                if (rawData && rawData.length > 0) {
+                    labels = rawData.map(row => row[0]).reverse();      // Tarihler
+                    riskScores = rawData.map(row => row[4]).reverse();  // 4. İndex: Risk Skoru
+                }
+
+                // Grafiği Çizdir
+                const canvas = document.getElementById('historyChart');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Risk Skoru',
+                                data: riskScores,
+                                borderColor: '#4f46e5',
+                                backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: '#4f46e5',
+                                pointRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                                y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, beginAtZero: true, max: 100 }
+                            },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Grafik yüklenirken bir hata oluştu:", error);
+            }
+        });
+
+    
+document.addEventListener('DOMContentLoaded', () => {
+    // Tüm linkleri yakala
+    const links = document.querySelectorAll('a');
+    
+    links.forEach(link => {
+        link.addEventListener('click', e => {
+            // Sadece kendi sitemiz içindeki linkler için çalışsın
+            if (link.hostname === window.location.hostname && !link.target && !link.href.includes('#')) {
+                e.preventDefault();
+                const destination = link.href;
+                
+                // Sayfayı yavaşça karart
+                document.body.style.transition = 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out';
+                document.body.style.opacity = '0';
+                document.body.style.transform = 'translateY(-10px)';
+                
+                // Animasyon bitince yeni sayfaya git
+                setTimeout(() => {
+                    window.location.href = destination;
+                }, 400);
+            }
+        });
+    });
+});
+
+    </script>
+</body>
+</html>
